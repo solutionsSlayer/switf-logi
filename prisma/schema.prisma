@@ -8,34 +8,101 @@ datasource db {
 }
 
 model Customer {
-  id        String     @id @default(uuid())
-  name      String
-  email     String     @unique
-  phone     String?
-  address   String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  deliveries Delivery[]
+  id            String          @id @default(uuid())
+  name          String
+  email         String          @unique
+  phone         String?
+  address       String
+  loyaltyPoints Int            @default(0)
+  tier          CustomerTier   @default(STANDARD)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deliveries    Delivery[]
+  claims        Claim[]
+  preferences   CustomerPreference?
 
   @@map("customers")
 }
 
-model Delivery {
+model CustomerPreference {
   id              String    @id @default(uuid())
-  trackingNumber  String    @unique
+  customerId      String    @unique
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  preferredTime   String?
+  specialInstructions String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("customer_preferences")
+}
+
+model Delivery {
+  id              String          @id @default(uuid())
+  trackingNumber  String          @unique
   status          DeliveryStatus
   customerId      String
-  customer        Customer  @relation(fields: [customerId], references: [id])
+  customer        Customer        @relation(fields: [customerId], references: [id])
   destination     String
   expectedDelivery DateTime
   actualDelivery   DateTime?
   delay           Float?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  region          Region    @relation(fields: [regionId], references: [id])
+  weight          Float
+  dimensions      String?
+  priority        Priority       @default(STANDARD)
+  signature       Boolean        @default(false)
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  region          Region         @relation(fields: [regionId], references: [id])
   regionId        String
+  deliveryAttempts DeliveryAttempt[]
+  claim           Claim?
+  insurance       Insurance?
 
   @@map("deliveries")
+}
+
+model DeliveryAttempt {
+  id          String    @id @default(uuid())
+  deliveryId  String
+  delivery    Delivery  @relation(fields: [deliveryId], references: [id])
+  attemptDate DateTime
+  status      AttemptStatus
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("delivery_attempts")
+}
+
+model Insurance {
+  id          String    @id @default(uuid())
+  deliveryId  String    @unique
+  delivery    Delivery  @relation(fields: [deliveryId], references: [id])
+  coverage    Float
+  premium     Float
+  status      InsuranceStatus @default(ACTIVE)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("insurances")
+}
+
+model Claim {
+  id          String    @id @default(uuid())
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  deliveryId  String    @unique
+  delivery    Delivery  @relation(fields: [deliveryId], references: [id])
+  type        ClaimType
+  status      ClaimStatus
+  amount      Float
+  description String
+  resolution  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("claims")
 }
 
 model Region {
@@ -63,7 +130,54 @@ model DeliveryTrend {
 
 enum DeliveryStatus {
   PENDING
+  PROCESSING
   IN_TRANSIT
+  OUT_FOR_DELIVERY
   DELIVERED
   DELAYED
+  FAILED
+  RETURNED
+}
+
+enum Priority {
+  ECONOMY
+  STANDARD
+  EXPRESS
+  PRIORITY
+}
+
+enum CustomerTier {
+  STANDARD
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum AttemptStatus {
+  SUCCESS
+  NO_ONE_HOME
+  WRONG_ADDRESS
+  REFUSED
+  OTHER
+}
+
+enum ClaimType {
+  DAMAGE
+  LOSS
+  DELAY
+  OTHER
+}
+
+enum ClaimStatus {
+  PENDING
+  INVESTIGATING
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
+enum InsuranceStatus {
+  ACTIVE
+  CLAIMED
+  EXPIRED
 }
